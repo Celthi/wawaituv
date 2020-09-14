@@ -11,9 +11,9 @@
 #include <uv.h> // libuv
 #include <vector>
 #if __has_include(<experimental/coroutine>)
-#include <experimental/coroutine>
+  #include <experimental/coroutine>
 #else
-#include <experimental\resumable>
+  #include <experimental\resumable>
 #endif
 
 namespace awaituv {
@@ -1254,37 +1254,6 @@ inline int read_start(uv_stream_t* handle, read_request_t* request)
   return res;
 }
 
-template <>
-struct future_t<void, awaituv::awaitable_state<std::string>> {
-  typedef std::string                                           type;
-  typedef promise_t<void, awaituv::awaitable_state<std::string>> promise_type;
-  counted_ptr<awaituv::awaitable_state<std::string>>            _state;
-  future_t(const counted_ptr<awaituv::awaitable_state<std::string>>& state)
-    : _state(state)
-  {
-    this->_state->_future_acquired = true;
-  }
-  future_t(const awaituv::future_t<void, awaituv::awaitable_state<std::string>>&) = delete;
-   awaituv::future_t<void, awaituv::awaitable_state<std::string>> & operator=(const awaituv::future_t<void, awaituv::awaitable_state<std::string>>&) = delete;
-    future_t(awaituv::future_t<void, awaituv::awaitable_state<std::string>> && f) = default;
-     awaituv::future_t<void, awaituv::awaitable_state<std::string>> &operator=(awaituv::future_t<void, awaituv::awaitable_state<std::string>>&&) =
-                  default;
-   std::string await_resume() const
-  {
-    return this->_state->get_value();
-  }
-  bool await_ready() const
-  {
-    return this->_state->_ready;
-  }
-  void await_suspend(std::experimental::coroutine_handle<> resume_cb)
-  {
-    this->_state->set_coroutine_callback(resume_cb);
-    this->_state->execute_on_await();
-  }
-  bool ready() const;
-  auto get_value() const;
-};
 /**
  * A wrapper to wrap the co_await expression(s) as a coroutine
  */
@@ -1466,19 +1435,5 @@ async<std::string> stream_to_string(uv_stream_t* handle)
   }
   co_return str;
 }
-/*future_t<std::string> stream_to_string_f(uv_stream_t* handle)
-{
-  read_request_t reader;
-  std::string    str;
-  if (read_start(handle, &reader) == 0) {
-    while (1) {
-      auto state = co_await reader.read_next();
-      if (state->_nread <= 0)
-        break;
-      str.append(state->_buf.base, state->_nread);
-    }
-  }
-  co_return str;
-}*/
 } // namespace awaituv
 

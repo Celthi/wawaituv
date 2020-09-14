@@ -139,7 +139,7 @@ future_t<void> start_hello_world()
 int main(int argc, char* argv[])
 {
   // Process command line
-  /*if (argc == 1) {
+  if (argc == 1) {
     printf("testuv [--sequential] <file1> <file2> ...");
     return -1;
   }
@@ -153,21 +153,15 @@ int main(int argc, char* argv[])
     else
       files.push_back(str);
   }
-  */
-  bool fRunSequentially = true;
+  
 
   // start async color changer
-  // start_color_changer();
+  start_color_changer();
 
   // start_hello_world();
-  /* if (fRunSequentially)
+  if (fRunSequentially)
      uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
-   for (auto& file : files) {
-     start_dump_file(file.c_str());
-     if (fRunSequentially)
-       uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-   }*/
 
   start_http_google();
   if (fRunSequentially)
@@ -178,8 +172,8 @@ int main(int argc, char* argv[])
 
   // stop the color changer and let it get cleaned up
 
-  // stop_color_changer();
-  // uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  stop_color_changer();
+  uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
   uv_loop_close(uv_default_loop());
 
