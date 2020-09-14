@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <atomic>
 #include <functional>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <string.h>
@@ -9,7 +10,6 @@
 #include <tuple>
 #include <uv.h> // libuv
 #include <vector>
-
 #if __has_include(<experimental/coroutine>)
 #include <experimental/coroutine>
 #else
@@ -91,7 +91,6 @@ struct awaitable_state_base {
 template <typename T>
 struct awaitable_state : public awaitable_state_base {
   T _value;
-
   void set_value(const T& t)
   {
     _value = t;
@@ -332,11 +331,13 @@ struct promise_t {
     return future_type(_state);
   }
 
-  std::experimental::suspend_if initial_suspend() const
+  auto initial_suspend() const
   {
     // Suspend if _on_await has something in it.
     bool suspend = _state->_on_await != nullptr;
-    return std::experimental::suspend_if{ suspend };
+    assert(false);
+    std::cout << "initial suspend " << suspend << "\n";
+    return std::experimental::suspend_always{};
   }
 
   std::experimental::suspend_never final_suspend() const
@@ -583,9 +584,7 @@ public:
 
 // Simple RAII for uv_fs_t type
 struct fs_t : public ::uv_fs_t {
-  fs_t() : ::uv_fs_t{ 0 }
-  {
-  }
+  fs_t() : ::uv_fs_t{ 0 } {}
   ~fs_t()
   {
     ::uv_fs_req_cleanup(this);
@@ -1255,7 +1254,205 @@ inline int read_start(uv_stream_t* handle, read_request_t* request)
   return res;
 }
 
-inline future_t<std::string> stream_to_string(uv_stream_t* handle)
+template <>
+struct future_t<void, awaituv::awaitable_state<std::string>> {
+  typedef std::string                                           type;
+  typedef promise_t<void, awaituv::awaitable_state<std::string>> promise_type;
+  counted_ptr<awaituv::awaitable_state<std::string>>            _state;
+  future_t(const counted_ptr<awaituv::awaitable_state<std::string>>& state)
+    : _state(state)
+  {
+    this->_state->_future_acquired = true;
+  }
+  future_t(const awaituv::future_t<void, awaituv::awaitable_state<std::string>>&) = delete;
+   awaituv::future_t<void, awaituv::awaitable_state<std::string>> & operator=(const awaituv::future_t<void, awaituv::awaitable_state<std::string>>&) = delete;
+    future_t(awaituv::future_t<void, awaituv::awaitable_state<std::string>> && f) = default;
+     awaituv::future_t<void, awaituv::awaitable_state<std::string>> &operator=(awaituv::future_t<void, awaituv::awaitable_state<std::string>>&&) =
+                  default;
+   std::string await_resume() const
+  {
+    return this->_state->get_value();
+  }
+  bool await_ready() const
+  {
+    return this->_state->_ready;
+  }
+  void await_suspend(std::experimental::coroutine_handle<> resume_cb)
+  {
+    this->_state->set_coroutine_callback(resume_cb);
+    this->_state->execute_on_await();
+  }
+  bool ready() const;
+  auto get_value() const;
+};
+/**
+ * A wrapper to wrap the co_await expression(s) as a coroutine
+ */
+template <typename T>
+struct async
+{
+    struct promise_type;
+    using handle_type = std::experimental::coroutine_handle<promise_type>;
+    handle_type coro;
+
+    async(handle_type h)
+        : coro(h)
+    {
+    }
+    async(const async &) = delete;
+    async(async &&s)
+        : coro(s.coro)
+    {
+        s.coro = nullptr;
+    }
+    ~async()
+    {
+        if (coro)
+            coro.destroy();
+    }
+    async &operator=(const async &) = delete;
+    async &operator=(async &&s)
+    {
+        coro = s.coro;
+        s.coro = nullptr;
+        return *this;
+    }
+
+    T get()
+    {
+        return coro.promise().value;
+    }
+    struct promise_type
+    {
+        T value;
+        promise_type()
+        {
+        }
+        ~promise_type()
+        {
+        }
+
+        auto get_return_object()
+        {
+            return async<T>{handle_type::from_promise(*this)};
+        }
+        auto initial_suspend()
+        {
+            return std::experimental::suspend_never{};
+        }
+        auto return_value(T v)
+        {
+            value = v;
+            return std::experimental::suspend_never{};
+        }
+        auto final_suspend() noexcept
+        {
+            return std::experimental::suspend_always{};
+        }
+        void unhandled_exception()
+        {
+            std::exit(1);
+        }
+        
+    };
+    bool await_ready()
+    {
+        return this->coro.done();
+    }
+    void await_suspend(std::experimental::coroutine_handle<> awaiting)
+    {
+        awaiting.resume();
+    }
+    auto await_resume()
+    {
+        const auto r = this->coro.promise().value;
+        return r;
+    }
+};
+template <>
+struct async<void>
+{
+    struct promise_type;
+    using handle_type = std::experimental::coroutine_handle<promise_type>;
+    handle_type coro;
+
+    async(handle_type h)
+        : coro(h)
+    {
+        std::cout << "Created a async object" << std::endl;
+    }
+    async(const async &) = delete;
+    async(async &&s)
+        : coro(s.coro)
+    {
+        std::cout << "async moved leaving behind a husk" << std::endl;
+        s.coro = nullptr;
+    }
+    ~async()
+    {
+        std::cout << "async gone" << std::endl;
+        if (coro)
+            coro.destroy();
+    }
+    async &operator=(const async &) = delete;
+    async &operator=(async &&s)
+    {
+        coro = s.coro;
+        s.coro = nullptr;
+        return *this;
+    }
+    struct promise_type
+    {
+        promise_type()
+        {
+            std::cout << "Promise created" << std::endl;
+        }
+        ~promise_type()
+        {
+            std::cout << "Promise died" << std::endl;
+        }
+
+        auto get_return_object()
+        {
+            std::cout << "Send back a async" << std::endl;
+            return async<void>{handle_type::from_promise(*this)};
+        }
+        auto initial_suspend()
+        {
+            std::cout << "Started the coroutine, don't stop now!" << std::endl;
+            return std::experimental::suspend_never{};
+        }
+        auto return_void()
+        {
+            return std::experimental::suspend_never{};
+        }
+        auto final_suspend() noexcept
+        {
+            std::cout << "Finished the coro" << std::endl;
+            return std::experimental::suspend_always{};
+        }
+        void unhandled_exception()
+        {
+            std::exit(1);
+        }
+        
+    };
+    bool await_ready()
+    {
+        const auto ready = this->coro.done();
+        std::cout << "Await " << (ready ? "is ready" : "isn't ready") << std::endl;
+        return this->coro.done();
+    }
+    void await_suspend(std::experimental::coroutine_handle<> awaiting)
+    {
+        awaiting.resume();
+    }
+    auto await_resume()
+    {
+        std::cout << "Await value is returned: " << std::endl;
+    }
+};
+async<std::string> stream_to_string(uv_stream_t* handle)
 {
   read_request_t reader;
   std::string    str;
@@ -1269,4 +1466,19 @@ inline future_t<std::string> stream_to_string(uv_stream_t* handle)
   }
   co_return str;
 }
+/*future_t<std::string> stream_to_string_f(uv_stream_t* handle)
+{
+  read_request_t reader;
+  std::string    str;
+  if (read_start(handle, &reader) == 0) {
+    while (1) {
+      auto state = co_await reader.read_next();
+      if (state->_nread <= 0)
+        break;
+      str.append(state->_buf.base, state->_nread);
+    }
+  }
+  co_return str;
+}*/
 } // namespace awaituv
+

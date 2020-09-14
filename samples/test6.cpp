@@ -11,7 +11,7 @@ future_t<void> test3()
   co_return;
 }
 
-future_t<void> forward(future_t<void> f)
+async<void> forward(future_t<void> f)
 {
   co_await f;
 }

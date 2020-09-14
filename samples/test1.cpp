@@ -65,11 +65,11 @@ future_t<void> start_http_google()
     // done sending data. Makes it easier than figuring it out on our end...
     const char* httpget =
         "GET / HTTP/1.0\r\n"
-        "Host: www.google.com\r\n"
+        "Host: www.baidu.com\r\n"
         "Cache-Control: max-age=0\r\n"
         "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n"
         "\r\n";
-    const char* host = "www.google.com";
+    const char* host = "www.baidu.com";
 
     uv_getaddrinfo_t req;
     auto addr = getaddrinfo(uv_default_loop(), &req, host, "http", nullptr);
@@ -100,7 +100,7 @@ future_t<void> start_http_google()
   }
 }
 
-future_t<void> start_dump_file(const std::string& str)
+/*future_t<void> start_dump_file(const std::string& str)
 {
   // We can use the same request object for all file operations as they don't
   // overlap.
@@ -118,19 +118,19 @@ future_t<void> start_dump_file(const std::string& str)
         break;
       buffer.len = result;
       fs_t           req;
-      (void)co_await fs_write(uv_default_loop(), &req, 1 /*stdout*/, &buffer,
+      (void)co_await fs_write(uv_default_loop(), &req, 1 , &buffer,
                               1, -1);
     }
     fs_t           closereq;
     (void)co_await fs_close(uv_default_loop(), &closereq, file);
   }
 }
-
+*/
 future_t<void> start_hello_world()
 {
   for (int i = 0; i < 1000; ++i) {
-    string_buf_t   buf("\nhello world\n");
-    fs_t           req;
+    string_buf_t buf("\nhello world\n");
+    fs_t         req;
     (void)co_await fs_write(uv_default_loop(), &req, 1 /*stdout*/, &buf, 1,
                             -1);
   }
@@ -139,7 +139,7 @@ future_t<void> start_hello_world()
 int main(int argc, char* argv[])
 {
   // Process command line
-  if (argc == 1) {
+  /*if (argc == 1) {
     printf("testuv [--sequential] <file1> <file2> ...");
     return -1;
   }
@@ -153,19 +153,21 @@ int main(int argc, char* argv[])
     else
       files.push_back(str);
   }
+  */
+  bool fRunSequentially = true;
 
   // start async color changer
-  start_color_changer();
+  // start_color_changer();
 
-  start_hello_world();
-  if (fRunSequentially)
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  // start_hello_world();
+  /* if (fRunSequentially)
+     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
-  for (auto& file : files) {
-    start_dump_file(file.c_str());
-    if (fRunSequentially)
-      uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-  }
+   for (auto& file : files) {
+     start_dump_file(file.c_str());
+     if (fRunSequentially)
+       uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+   }*/
 
   start_http_google();
   if (fRunSequentially)
@@ -175,8 +177,9 @@ int main(int argc, char* argv[])
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
   // stop the color changer and let it get cleaned up
-  stop_color_changer();
-  uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+  // stop_color_changer();
+  // uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
   uv_loop_close(uv_default_loop());
 

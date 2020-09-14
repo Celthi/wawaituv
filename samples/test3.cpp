@@ -8,7 +8,7 @@ using namespace std;
 using namespace awaituv;
 using namespace awaitcurl;
 
-future_t<void> test3(curl_requester_t& requester)
+async<void> test3(curl_requester_t& requester)
 {
   auto resourcetype = "pet";
   auto resourcelink = "pet/51231236";
@@ -45,7 +45,7 @@ future_t<void> test3(curl_requester_t& requester)
   }
 
   curl_slist_free_all(headers);
-  co_return;
+  co_return ;
 }
 
 int main(int argc, char* argv[])
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
   {
     curl_requester_t requester(*uv_default_loop());
 
-    test3(requester);
+    auto a = test3(requester);
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
   }

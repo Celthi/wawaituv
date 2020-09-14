@@ -273,7 +273,7 @@ struct curl_requester_t {
     return promise.get_future();
   }
 
-  future_t<http_response_t> invoke(const char* url)
+  async<http_response_t> invoke(const char* url)
   {
     auto handle = curl_easy_init();
     curl_easy_setopt(handle, CURLOPT_URL, url);

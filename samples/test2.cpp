@@ -112,7 +112,7 @@ future_t<void> start_http_google()
   }
 }
 
-future_t<void> start_dump_file(const std::string& str)
+async<void> start_dump_file(const std::string& str)
 {
   // We can use the same request object for all file operations as they don't
   // overlap.
